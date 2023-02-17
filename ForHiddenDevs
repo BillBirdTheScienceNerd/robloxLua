@@ -1,0 +1,293 @@
+--This is a fireball script made by me
+
+--Server script 1:
+local rs = game:GetService("ReplicatedStorage")
+local remote = rs.Remotes.Attacks.FireRemote
+
+remote.OnServerEvent:Connect(function(player, attack, data)
+	if attack == "Fireball" then
+		for i,v in pairs(game.Players:GetChildren()) do
+			if  v ~= player then 
+				data.client = false
+				data.Attack = "Fireball"
+				remote:FireClient(v, data)
+			end
+		end
+	elseif attack == "FireCharge" then
+		local hb = rs.Tools.Fireball.Sphere:Clone()
+		hb.Parent = workspace.Fx
+		hb.Size = Vector3.new(2, 2, 2)
+		hb.Position = Vector3.new(data.endpoint)
+		hb.Anchored = true
+		hb.CanCollide = false
+		hb.Transparency = 1
+		hb.Name = "hb"
+		hb.Material = Enum.Material.ForceField
+		hb.CanQuery = false
+		
+		local con
+		con = hb.Touched:Connect(function()
+			con:Disconnect()
+		end)
+		local hits = {}
+		for i,v in pairs(hb:GetTouchingParts()) do
+			if v:IsDescendantOf(data.c) == false then
+				if v.Parent:FindFirstChildWhichIsA("Humanoid") and table.find(hits, v.Parent) == nil and (data.endpoint - v.Position).Magnitude < 16 then
+					table.insert(hits, v.Parent)
+					v.Parent.Humanoid:TakeDamage(40)
+				end
+			end
+		end
+		hb:Destroy()
+	end
+end)
+
+--Local script:
+local uis = game:GetService("UserInputService")
+local rs = game:GetService("ReplicatedStorage")
+local ts = game:GetService ("TweenService")
+local debris = game:GetService('Debris')
+
+local holding = false
+
+local player = game.Players.LocalPlayer
+local mouse = player:GetMouse()
+local character = script.Parent
+local humanoid = character.Humanoid
+local hrp = character.HumanoidRootPart
+
+local remote = rs.Remotes.Attacks.FireRemote
+local resources = rs.Attacks.Throw
+local anims = resources.Animations
+local fx = resources.Fx
+
+local camera = workspace.CurrentCamera
+local CameraShaker = require(rs.Modules.CameraShaker)
+
+local camShake = CameraShaker.new(Enum.RenderPriority.Camera.Value, function(shakeCFrame)
+	camera.CFrame = camera.CFrame * shakeCFrame
+end)
+camShake:Start()
+
+local function rayCast(startPosition, endPosition, filter, length, obj)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+	params.IgnoreWater = true
+	params.FilterDescendantsInstances = filter
+
+	local result = workspace:Raycast(obj.Position, (endPosition - startPosition).Unit * length, params)
+	if result then
+		obj.Position = result.Position
+		return false
+	else
+		obj.Position = (endPosition - startPosition).Unit * length + startPosition
+		return true
+	end
+end
+
+local function fireCharge(data)
+	local c = data.c
+	local h = c.HumanoidRootPart
+	local RightArm = c:FindFirstChild("Right Arm")
+	local root = c.HumanoidRootPart
+	local fireball = fx.Ball:Clone()
+	fireball.Parent = workspace.Fx
+
+	local handFire = fireball.Attatch.Fire:Clone()
+	handFire.Parent = RightArm.RightGripAttachment
+	handFire.Enabled = true
+	
+	game.ReplicatedStorage.Remotes.Attacks.FireRemote2:FireServer()
+
+	local floorfire = fx.Ball:Clone()
+	floorfire.CFrame = root.CFrame * CFrame.new(0,-3,0)
+	floorfire.RingAttach.Orientation = Vector3.new(0,0,0)
+	floorfire.RingAttach.Ring.Enabled = true
+	floorfire.Parent = workspace.Fx
+
+	for i = 1, 13 do
+		local circleMesh = fx.Circle:Clone()
+		circleMesh.Parent = workspace.Fx
+		circleMesh.CFrame = RightArm.CFrame * CFrame.Angles(math.rad(math.random(0,180)),math.rad(math.random(0,180)),math.rad(math.random(0,180)))
+		debris:AddItem(circleMesh, .5)
+		ts:Create(circleMesh, TweenInfo.new(.5), {Transparency = 1, Size = Vector3.new (0,0,0)}):Play()
+		wait (.1)
+	end
+
+
+
+	fireball.CFrame = c.HumanoidRootPart.CFrame * CFrame.new (1.5,0,-5)
+	handFire.Enabled = false
+	handFire:Destroy()
+
+	local ring = fireball:Clone()
+	ring.Parent = workspace.Fx
+	ring.CFrame = fireball.CFrame
+
+	if ring:FindFirstChild("RingAttach") ~= nil then
+		ring.RingAttach.Ring:Emit(50)
+	end
+
+	character.Humanoid.JumpHeight = 7.2
+
+	fireball:destroy()
+	if floorfire:FindFirstChild("RingAttach") ~= nil then
+		floorfire.RingAttach.Ring.Enabled = false
+		debris:AddItem(floorfire, 1)
+	end
+end
+
+local function fireball(data)
+	local c = data.c
+	local h = c.HumanoidRootPart.CFrame * CFrame.new(1.5,0,-5)
+	local root = c.HumanoidRootPart
+
+	local fireball = fx.Ball:Clone()
+	fireball.Parent = workspace.Fx
+	fireball.CFrame = c.HumanoidRootPart.CFrame * CFrame.new(1.5,0,-5)
+	fireball.Attatch.Fire.Enabled = true
+
+	camShake:ShakeOnce (2,5,.2,.4)
+
+	local connection
+	local count = 0
+
+	connection = game:GetService("RunService").RenderStepped:Connect(function(dt)
+		if count > 5 then
+			connection:Disconnect()
+			fireball.Attatch.Fire.Enabled = false
+			wait (1)
+			fireball.Destroy()
+			return
+		else if rayCast(fireball.Position, data.endpoint, {c, workspace.Fx}, 100 * dt, fireball) == false then
+				for i = 0, 15 do
+					local part = Instance.new("Part", workspace.Fx)
+					part.Size = Vector3.new(4, math.random (15,25)/10)
+					part.Anchored = true
+					part.CFrame = CFrame.new(fireball.Position) * CFrame.Angles(0, math.rad(i * 24), 0) * CFrame.new (0,0,8) * CFrame.Angles(math.rad(35),0,0)
+					part.CanQuery = false
+					part.CanCollide = false
+					part.CanTouch = false
+
+					local params = RaycastParams.new()
+					params.FilterType = Enum.RaycastFilterType.Blacklist
+					params.IgnoreWater = true
+					params.FilterDescendantsInstances = {c, workspace.Fx:GetChildren(), workspace.VFX:GetChildren()}
+
+					local result = workspace:Raycast(part.Position + Vector3.new (0,2,0), Vector3.new(0,-10,0), params)
+					if result then
+						part.Position = result.Position
+						part.Material = result.Material
+						part.Color = result.Instance.Color
+					end
+
+					if i % 3 < 2 then
+						local fire = fx.Ball:Clone()
+						if result ~= nil then
+							fire.Size = Vector3.new(math.random(10,20)/10, math.random(10,20)/10, math.random(10,20)/10)
+							fire.Position = result.Position + Vector3.new(0,3,0)
+							fire.Material = result.Material
+							fire.Color = result.Instance.Color
+							fire.Attatch.Fire.Enabled = true
+							fire.Attatch.Fire.LockedToPart = false
+							fire.Parent = workspace.Fx
+							fire.Anchored = false
+							fire.CanCollide = true
+						else
+							fire.Parent = rs
+							print("Raycast resulted in nil, fireball not fired")
+						end
+
+						local bv = fx.Ball:Clone()
+						bv.Velocity= Vector3.new(math.random(-40,40), 30, math.random(-40,40))
+						bv.Name = "Velocity"
+
+						game.Debris:AddItem(bv,.1)
+						game.Debris:AddItem(fire,4)
+
+						spawn(function()
+							wait(2)
+							ts:Create(fire, TweenInfo.new(1, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out, 0, false, 0), {Transparency = 1}):Play()
+						end)
+
+						fire.Transparency = 0
+					end
+
+					part.Position = part.Position - Vector3.new(0,4,0)
+					ts:Create(part, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out, 0, false, 0), {Position = part.Position + Vector3.new(0,4,0)}):play()
+
+					spawn(function()
+						game.Debris:AddItem(part,4)
+						wait(3)
+						ts:Create(part, TweenInfo.new(.5, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out, 0, false, 0), {Position = part.Position - Vector3.new(0,4,0)}):play()
+					end)
+				end
+
+				if fireball:FindFirstChild("Attatch") ~= nil then
+					fireball.Attatch.Fire.Enabled = false
+					fireball.Attatch.Explosion:Emit(100)
+				end
+
+				camShake:ShakeOnce(2,5,.2,.4)
+				connection:Disconnect()
+				if data.client == true then
+					data.endpoint = fireball.Position
+					remote:FireServer("FireballHit", data)
+				end
+				wait(1)
+				fireball:Destroy()	
+				workspace.Fx:ClearAllChildren()
+				return
+			end	
+		end
+	end)
+end
+
+uis.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == Enum.KeyCode.E then
+		if mouse.Hit then
+
+			local data = {client = true, c = character}
+			local load = humanoid:LoadAnimation(anims.Throw4)
+			load:Play()
+			debris:AddItem(load, load.Length)
+			remote:FireServer ("FireCharge", data)
+			fireCharge(data)
+			data.endpoint = mouse.Hit.Position
+			remote:FireServer("Fireball", data)
+			fireball (data)
+			
+			wait(3.25)
+
+		end
+	end
+end)
+
+remote.OnClientEvent:Connect(function(data)
+	if data.Attack == "Fireball" then
+		fireball(data)
+	elseif data.Attack == "FireCharge" then
+		fireCharge(data)
+	end
+end)
+
+--Server script 2:
+game.ReplicatedStorage.Remotes.Attacks.FireRemote2.OnServerEvent:Connect(function(player)
+	player.Character.HumanoidRootPart.Anchored = true
+	local ts = game:GetService("TweenService")
+
+	local tweenInfo = TweenInfo.new(
+		1.5,
+		Enum.EasingStyle.Sine,
+		Enum.EasingDirection.Out,
+		0,
+		true,
+		0
+	)
+
+	local tween = ts:Create(player.Character.HumanoidRootPart, tweenInfo, {Position = player.Character.HumanoidRootPart.Position + Vector3.new(0,40,0)})
+	tween:Play()
+	wait(3.25)
+	player.Character.HumanoidRootPart.Anchored = false
+end)
